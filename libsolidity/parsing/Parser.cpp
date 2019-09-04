@@ -1585,6 +1585,18 @@ ASTPointer<Expression> Parser::parseLeftHandSideExpression(
 			nodeFactory.markEndPosition();
 		expression = nodeFactory.createNode<NewExpression>(typeName);
 	}
+	else if (m_scanner->currentToken() == Token::Payable)
+	{
+		expectToken(Token::Payable);
+		nodeFactory.markEndPosition();
+		auto expressionType = nodeFactory.createNode<ElementaryTypeName>(
+			ElementaryTypeNameToken(Token::Address, 160, 0),
+			boost::make_optional(StateMutability::Payable)
+		);
+		expression = nodeFactory.createNode<ElementaryTypeNameExpression>(expressionType);
+		if (m_scanner->currentToken() != Token::LParen)
+			parserError("Expected address to be converted to address payable.");
+	}
 	else
 		expression = parsePrimaryExpression();
 
@@ -1725,8 +1737,10 @@ ASTPointer<Expression> Parser::parsePrimaryExpression()
 			unsigned firstSize;
 			unsigned secondSize;
 			tie(firstSize, secondSize) = m_scanner->currentTokenInfo();
-			ElementaryTypeNameToken elementaryExpression(m_scanner->currentToken(), firstSize, secondSize);
-			expression = nodeFactory.createNode<ElementaryTypeNameExpression>(elementaryExpression);
+			auto expressionType = nodeFactory.createNode<ElementaryTypeName>(
+				ElementaryTypeNameToken(m_scanner->currentToken(), firstSize, secondSize)
+			);
+			expression = nodeFactory.createNode<ElementaryTypeNameExpression>(expressionType);
 			m_scanner->next();
 		}
 		else
@@ -1838,8 +1852,10 @@ Parser::IndexAccessedPath Parser::parseIndexAccessedPath()
 		unsigned firstNum;
 		unsigned secondNum;
 		tie(firstNum, secondNum) = m_scanner->currentTokenInfo();
-		ElementaryTypeNameToken elemToken(m_scanner->currentToken(), firstNum, secondNum);
-		iap.path.push_back(ASTNodeFactory(*this).createNode<ElementaryTypeNameExpression>(elemToken));
+		auto expressionType = ASTNodeFactory(*this).createNode<ElementaryTypeName>(
+			ElementaryTypeNameToken(m_scanner->currentToken(), firstNum, secondNum)
+		);
+		iap.path.push_back(ASTNodeFactory(*this).createNode<ElementaryTypeNameExpression>(expressionType));
 		m_scanner->next();
 	}
 	while (m_scanner->currentToken() == Token::LBrack)
@@ -1872,7 +1888,7 @@ ASTPointer<TypeName> Parser::typeNameFromIndexAccessStructure(Parser::IndexAcces
 	if (auto typeName = dynamic_cast<ElementaryTypeNameExpression const*>(_iap.path.front().get()))
 	{
 		solAssert(_iap.path.size() == 1, "");
-		type = nodeFactory.createNode<ElementaryTypeName>(typeName->typeName());
+		type = nodeFactory.createNode<ElementaryTypeName>(typeName->type().typeName());
 	}
 	else
 	{
