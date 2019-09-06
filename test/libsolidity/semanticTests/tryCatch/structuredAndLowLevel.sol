@@ -1,14 +1,15 @@
 contract C {
     function g(bool b) public pure returns (uint, uint) {
-        require(b);
+        require(b, "message longer than 32 bytes 32 bytes 32 bytes 32 bytes 32 bytes 32 bytes 32 bytes");
         return (1, 2);
     }
-    function f(bool b) public returns (uint x, uint y, bytes memory txt) {
-        try this.g(b) returns (uint a, uint b) {
+    function f(bool cond) public returns (uint x, uint y, bytes memory txt) {
+        try this.g(cond) returns (uint a, uint b) {
             (x, y) = (a, b);
+            txt = "success";
         } catch Error(string memory s) {
             x = 99;
-            txt = s;
+            txt = bytes(s);
         } catch (bytes memory s) {
             x = 98;
             txt = s;
@@ -16,5 +17,5 @@ contract C {
     }
 }
 // ----
-// f(bool): true -> 1, 2
-// f(bool): false -> 9, 10
+// f(bool): true -> 1, 2, 96, 7, "success"
+// f(bool): false -> 99, 0, 96, 82, "message longer than 32 bytes 32 ", "bytes 32 bytes 32 bytes 32 bytes", " 32 bytes 32 bytes"
