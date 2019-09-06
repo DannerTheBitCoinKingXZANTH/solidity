@@ -820,7 +820,7 @@ void ContractCompiler::handleCatch(vector<ASTPointer<TryCatchClause>> const& _ca
 		else
 			solAssert(false, "");
 
-	solAssert(_catchClauses.size() == 1 + (structured ? 1 : 0) + (fallback ? 1 : 0), "");
+	solAssert(_catchClauses.size() == size_t(1 + (structured ? 1 : 0) + (fallback ? 1 : 0)), "");
 
 	eth::AssemblyItem endTag = m_context.newTag();
 	eth::AssemblyItem fallbackTag = m_context.newTag();
@@ -841,32 +841,26 @@ void ContractCompiler::handleCatch(vector<ASTPointer<TryCatchClause>> const& _ca
 		m_context.appendInlineAssembly(
 			Whiskers(R"({
 				data := mload(0x40)
+				mstore(data, 0)
 				for {} 1 {} {
 					if lt(returndatasize(), 0x44) { error := 1 break }
 					returndatacopy(0, 0, 4)
-					let sig := shr(mload(0), 224)
-					if iszero(eq(sig, <ErrorSignature>)) { error := 1 break }
+					let sig := shr(224, mload(0))
+					if iszero(eq(sig, 0x<ErrorSignature>)) { error := 1 break }
 					returndatacopy(data, 4, sub(returndatasize(), 4))
 					let offset := mload(data)
-					if gt(offset, 0xffffffffffffffff) {
-						error := 1
-						break
-					}
-					if gt(add(offset, 0x24), returndatasize()) {
+					if or(
+						gt(offset, 0xffffffffffffffff),
+						gt(add(offset, 0x24), returndatasize())
+					) {
 						error := 1
 						break
 					}
 					let msg := add(data, offset)
 					let length := mload(msg)
-					if gt(length, 0xffffffffffffffff) {
-						error := 1
-						break
-					}
+					if gt(length, 0xffffffffffffffff) { error := 1 break }
 					let end := add(add(msg, 0x20), length)
-					if gt(end, add(data, returndatasize())) {
-						error := 1
-						break
-					}
+					if gt(end, add(data, returndatasize())) { error := 1 break }
 					mstore(0x40, and(add(end, 0x1f), not(0x1f)))
 					data := msg
 					break
